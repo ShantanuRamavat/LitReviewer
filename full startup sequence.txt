@@ -3,21 +3,23 @@ Here's the full startup sequence after a reboot:
 1. Start Docker infrastructure (PostgreSQL, Redis, Qdrant)
 
 
-cd "d:\Study\Projects\Multi-Agent Research Team\infrastructure"
+cd litreviewer/infrastructure
 docker compose up -d postgres qdrant redis
+
 2. Start the backend (in a separate terminal)
 
 
-cd "d:\Study\Projects\Multi-Agent Research Team\backend"
+cd litreviewer/backend
 uv run uvicorn app.main:app --reload
-Wait for: All startup tasks complete. Nexus Research API is accepting requests.
+Wait for: All startup tasks complete. LitReviewer API is accepting requests.
 (First run after reboot takes ~1 min to load the embedding model from cache)
 
 3. Start the frontend (in another separate terminal)
 
 
-cd "d:\Study\Projects\Multi-Agent Research Team\frontend"
+cd litreviewer/frontend
 npm run dev
+
 4. Open http://localhost:3000
 
 Prerequisites that must be installed: Docker Desktop (must be running), Python with uv, Node.js
@@ -26,5 +28,5 @@ To stop everything:
 
 
 # Stop Docker services
-docker compose -C "d:\Study\Projects\Multi-Agent Research Team\infrastructure" down
+docker compose -f litreviewer/infrastructure/docker-compose.yml down
 # Press Ctrl+C in the backend and frontend terminals

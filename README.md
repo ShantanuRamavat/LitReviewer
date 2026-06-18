@@ -1,6 +1,6 @@
 # LitReviewer
 
-A production-grade Multi-Agent Literature Review Platform built for PhD students. Nexus orchestrates a team of specialised AI agents to automatically conduct, fact-check, critique, and write structured academic literature review reports — complete with inline citations and research gap analysis.
+A production-grade Multi-Agent Literature Review Platform built for PhD students. LitReviewer orchestrates a team of specialised AI agents to automatically conduct, fact-check, critique, and write structured academic literature review reports — complete with inline citations and research gap analysis.
 
 **PhD mode** produces 10,000–20,000-word literature review reports with annotated research gaps, methodological critiques, and PhD-specific supplementary annotations. **General mode** produces 3,000–5,000-word research summaries.
 
