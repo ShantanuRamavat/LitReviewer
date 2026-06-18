@@ -1,0 +1,129 @@
+# =============================================================================
+# LitReviewer — Production Docker Compose
+#
+# Brings up the full backend stack:
+#   postgres  — relational storage (sessions, reports, citations)
+#   qdrant    — vector database (research document embeddings)
+#   redis     — SSE event queue and rate limiter
+#   backend   — FastAPI application
+#
+# Usage:
+#   docker compose up -d            # start all services in the background
+#   docker compose down             # stop and remove containers
+#   docker compose down -v          # also remove persistent volumes
+#   docker compose logs -f backend  # tail backend logs
+#
+# Requires a .env file at the project root — copy .env.example and fill in
+# GROQ_API_KEY and TAVILY_API_KEY before starting.
+# =============================================================================
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # PostgreSQL 16
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-research}
+      POSTGRES_USER: ${POSTGRES_USER:-research_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-research_pass}
+      # Tune for the expected workload — these are conservative defaults.
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=en_US.UTF-8"
+    ports:
+      - "5433:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      # init.sql runs once on first container start (idempotent).
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "pg_isready -U ${POSTGRES_USER:-research_user} -d ${POSTGRES_DB:-research}"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # Qdrant — vector search engine
+  # ---------------------------------------------------------------------------
+  qdrant:
+    image: qdrant/qdrant:v1.12.0
+    restart: unless-stopped
+    ports:
+      - "6333:6333"   # REST API
+      - "6334:6334"   # gRPC (optional, for future performance tuning)
+    volumes:
+      - qdrant_data:/qdrant/storage
+    environment:
+      # Disable telemetry in production environments.
+      QDRANT__TELEMETRY_DISABLED: "true"
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        # Qdrant exposes a /healthz endpoint that returns 200 when ready.
+        - "wget -qO- http://localhost:6333/healthz || exit 1"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ---------------------------------------------------------------------------
+  # Redis 7
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    # No persistence (appendonly off) for MVP — Redis is used for ephemeral
+    # SSE queues and rate limit counters, not durable storage.
+    command: ["redis-server", "--appendonly", "no", "--maxmemory", "256mb",
+              "--maxmemory-policy", "allkeys-lru"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  # ---------------------------------------------------------------------------
+  # Backend — FastAPI application
+  # ---------------------------------------------------------------------------
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+      target: runtime
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - ../.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - "wget -qO- http://localhost:8000/api/v1/health || exit 1"
+      interval: 15s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+# =============================================================================
+# Named volumes — data persists across container restarts.
+# Remove with: docker compose down -v
+# =============================================================================
+volumes:
+  pg_data:
+    driver: local
+  qdrant_data:
+    driver: local

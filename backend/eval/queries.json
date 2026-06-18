@@ -1,0 +1,102 @@
+[
+  {
+    "id": "q01",
+    "query": "What are the latest advances in quantum error correction and fault-tolerant quantum computing?",
+    "domain": "physics"
+  },
+  {
+    "id": "q02",
+    "query": "How do large language models handle long-context reasoning and what are their current architectural limitations?",
+    "domain": "ai_ml"
+  },
+  {
+    "id": "q03",
+    "query": "What is the current state of mRNA vaccine technology beyond COVID-19 applications?",
+    "domain": "biology"
+  },
+  {
+    "id": "q04",
+    "query": "How do central banks use quantitative easing and what are its documented long-term economic effects?",
+    "domain": "economics"
+  },
+  {
+    "id": "q05",
+    "query": "What are the most effective carbon capture and storage technologies currently available at scale?",
+    "domain": "climate"
+  },
+  {
+    "id": "q06",
+    "query": "How does CRISPR-Cas9 gene editing work and what are its primary therapeutic applications in clinical trials?",
+    "domain": "biology"
+  },
+  {
+    "id": "q07",
+    "query": "What are the key unsolved challenges in developing fully autonomous vehicles?",
+    "domain": "technology"
+  },
+  {
+    "id": "q08",
+    "query": "How does the transformer attention mechanism scale and what architectural innovations address its quadratic complexity?",
+    "domain": "ai_ml"
+  },
+  {
+    "id": "q09",
+    "query": "What are the neurological mechanisms underlying major depressive disorder and how do current treatments target them?",
+    "domain": "neuroscience"
+  },
+  {
+    "id": "q10",
+    "query": "How do distributed consensus algorithms like Raft and Paxos differ in practice and what are their trade-offs?",
+    "domain": "computer_science"
+  },
+  {
+    "id": "q11",
+    "query": "What is the evidence for and against the multiverse hypothesis in modern cosmology?",
+    "domain": "physics"
+  },
+  {
+    "id": "q12",
+    "query": "How are reinforcement learning algorithms being applied to protein structure and drug discovery?",
+    "domain": "ai_biology"
+  },
+  {
+    "id": "q13",
+    "query": "What are the privacy guarantees and practical limitations of federated learning with differential privacy?",
+    "domain": "ai_privacy"
+  },
+  {
+    "id": "q14",
+    "query": "What is the role of the gut microbiome in mental health and what does the evidence say about the gut-brain axis?",
+    "domain": "biology"
+  },
+  {
+    "id": "q15",
+    "query": "How does zero-knowledge proof cryptography work and what are its most important practical applications?",
+    "domain": "cryptography"
+  },
+  {
+    "id": "q16",
+    "query": "What are the latest developments in nuclear fusion energy research and realistic timelines to commercialization?",
+    "domain": "physics"
+  },
+  {
+    "id": "q17",
+    "query": "How do recommendation systems balance accuracy with diversity and what are the documented filter bubble effects?",
+    "domain": "ai_ml"
+  },
+  {
+    "id": "q18",
+    "query": "What are the societal and legal implications of widespread deepfake technology?",
+    "domain": "technology_society"
+  },
+  {
+    "id": "q19",
+    "query": "How do sleep and memory consolidation interact at the neurological level and what does recent research show?",
+    "domain": "neuroscience"
+  },
+  {
+    "id": "q20",
+    "query": "What are the current approaches to explainability in deep learning and their limitations in high-stakes domains?",
+    "domain": "ai_ml"
+  }
+]

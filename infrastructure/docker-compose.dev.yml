@@ -1,0 +1,51 @@
+# =============================================================================
+# LitReviewer — Development Docker Compose Override
+#
+# Extends docker-compose.yml with development-specific settings:
+#   - Bind-mounts backend/app/ into the container for hot reload
+#   - Overrides the CMD to run Uvicorn with --reload
+#   - Sets ENVIRONMENT=development for pretty logs and enabled Swagger UI
+#   - Exposes additional debug ports
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# Or add an alias to your shell:
+#   alias dcdev="docker compose -f docker-compose.yml -f docker-compose.dev.yml"
+#   dcdev up
+# =============================================================================
+
+services:
+
+  backend:
+    build:
+      # Use the builder stage which includes uv — needed for --reload to pick
+      # up new dependencies installed during development.
+      target: builder
+    # Bind-mount the source directory so code changes are reflected immediately
+    # without rebuilding the image.
+    volumes:
+      - ../backend/app:/build/app
+    # Override the production CMD to enable auto-reload on file changes.
+    # --reload-dir restricts the watcher to the app directory only.
+    command:
+      - "python"
+      - "-m"
+      - "uvicorn"
+      - "app.main:app"
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "8000"
+      - "--reload"
+      - "--reload-dir"
+      - "/build/app"
+      - "--log-level"
+      - "debug"
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: DEBUG
+      # Override DB URLs to use localhost names — inherited from the base
+      # compose file's env_file, but we override for clarity.
+      PYTHONPATH: /build
+    working_dir: /build
