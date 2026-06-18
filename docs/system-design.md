@@ -3,7 +3,7 @@
 
 | Field | Value |
 |---|---|
-| Product | Nexus Research |
+| Product | LitReviewer |
 | Version | 1.0 — MVP |
 | Author | Staff AI Engineer / Technical Architect |
 | Date | 2026-06-08 |
@@ -69,12 +69,12 @@ graph TB
     end
 
     subgraph EXTERNAL["External Services"]
-        GEMINI[Gemini 2.5 Flash]
+        GROQ[Groq llama-3.3-70b]
         TAVILY[Tavily Search API]
     end
 
     B --> FRONTEND
-    FRONTEND -->|REST + SSE| ROUTER
+    FRONTEND -->|REST + polling| ROUTER
     ROUTER --> RESEARCH_SVC
     ROUTER --> PDF_SVC
     RESEARCH_SVC --> ORCHESTRATOR
@@ -82,15 +82,13 @@ graph TB
     ORCHESTRATOR --> FC_AGENT
     ORCHESTRATOR --> CR_AGENT
     ORCHESTRATOR --> W_AGENT
-    ORCHESTRATOR --> CI_AGENT
     R_AGENT --> TAVILY
     FC_AGENT --> TAVILY
     R_AGENT & FC_AGENT --> QD
-    R_AGENT & FC_AGENT & CR_AGENT & W_AGENT & CI_AGENT --> GEMINI
+    R_AGENT & FC_AGENT & CR_AGENT & W_AGENT --> GROQ
     RESEARCH_SVC --> PG
     RESEARCH_SVC --> RD
     RAG_SVC --> QD
-    STREAM_SVC -->|SSE events| FRONTEND
 ```
 
 ### 1.2 Key Design Principles
@@ -379,7 +377,7 @@ All settings are loaded once at startup from environment variables via `pydantic
 
 | Category | Variables |
 |---|---|
-| LLM | `GEMINI_API_KEY`, `GEMINI_MODEL` |
+| LLM | `GROQ_API_KEY`, `GROQ_MODEL`, `ANTHROPIC_API_KEY` (alternative) |
 | Search | `TAVILY_API_KEY`, `TAVILY_MAX_RESULTS` |
 | Databases | `POSTGRES_URL`, `QDRANT_URL`, `REDIS_URL` |
 | Research tuning | `MAX_ITERATIONS`, `MIN_QUALITY_SCORE`, `RAG_TOP_K` |
@@ -396,7 +394,7 @@ classDiagram
     class BaseAgent {
         <<abstract>>
         +name: str
-        +llm: ChatGoogleGenerativeAI
+        +llm: BaseChatModel
         +system_prompt: str
         +run(state: GraphState) GraphState
         #_build_messages(state) list[BaseMessage]
@@ -427,23 +425,15 @@ classDiagram
     class WriterAgent {
         +tools: []
         +run(state) GraphState
-        -_build_sections(findings) list[Section]
+        -_build_outline(findings) Outline
+        -_write_sections(outline) list[Section]
         -_write_summary(sections) str
-    }
-
-    class CitationAgent {
-        +tools: []
-        +run(state) GraphState
-        -_match_claims(report, findings) dict
-        -_insert_markers(text, matches) str
-        -_build_bibliography(findings) list[Citation]
     }
 
     BaseAgent <|-- ResearchAgent
     BaseAgent <|-- FactCheckerAgent
     BaseAgent <|-- CriticAgent
     BaseAgent <|-- WriterAgent
-    BaseAgent <|-- CitationAgent
 ```
 
 ### 4.2 LangGraph State Machine
@@ -460,9 +450,7 @@ stateDiagram-v2
 
     CriticAgent --> ResearchAgent : quality < threshold\nAND iteration < max_iterations
 
-    WriterAgent --> CitationAgent : report drafted
-
-    CitationAgent --> [*] : citations applied\nreport saved
+    WriterAgent --> [*] : report saved with inline citations
 ```
 
 ### 4.3 GraphState Schema
@@ -553,11 +541,10 @@ Agents are instructed to return **structured JSON** conforming to their output s
 
 | Agent | Output Format | Key Constraint |
 |---|---|---|
-| ResearchAgent | `list[Finding]` | Minimum 5 findings; each must have a real source URL |
+| ResearchAgent | `FindingList` | 13–20 findings; each must have a real source URL |
 | FactCheckerAgent | `list[VerifiedFinding]` | Must process every finding; `confidence` must be 0.0–1.0 |
 | CriticAgent | `Critique` | `quality_score` must be 0.0–1.0; `gaps` must be specific, not generic |
-| WriterAgent | `Report` | Must have title, summary, ≥3 sections, conclusion; no claims without a source reference |
-| CitationAgent | `Report` with markers + `list[Citation]` | Every sentence containing a factual claim must carry `[N]` marker |
+| WriterAgent | `Report` with inline citations | Outline → section-by-section writing; includes inline `[N]` markers and bibliography |
 
 ### 4.5 Tool Assignment per Agent
 
@@ -573,7 +560,6 @@ graph LR
         A2[FactCheckerAgent]
         A3[CriticAgent]
         A4[WriterAgent]
-        A5[CitationAgent]
     end
 
     A1 --> T1
@@ -582,11 +568,9 @@ graph LR
     A2 --> T2
     A3 -.->|no tools| X1[ ]
     A4 -.->|no tools| X2[ ]
-    A5 -.->|no tools| X3[ ]
 
     style X1 fill:none,stroke:none
     style X2 fill:none,stroke:none
-    style X3 fill:none,stroke:none
 ```
 
 **Rationale:** CriticAgent, WriterAgent, and CitationAgent perform pure reasoning over data already in `GraphState`. Giving them tool access would risk introducing new unverified information at the synthesis stage, which violates the trust contract.
@@ -882,14 +866,6 @@ flowchart TD
         W_PLAN --> W_SECTIONS --> W_SUMMARY --> W_OUT
     end
 
-    subgraph CITATION["CitationAgent"]
-        CI_MAP[Map each factual sentence\nto supporting finding IDs]
-        CI_INSERT[Insert [N] markers\ninline in report body]
-        CI_BIB[Build numbered bibliography\nfrom all cited sources]
-        CI_OUT[Cited Report JSON\nbody with markers + bibliography]
-        CI_MAP --> CI_INSERT --> CI_BIB --> CI_OUT
-    end
-
     subgraph PERSIST["Persistence"]
         PG_REPORT[Save to reports table\nPG — JSONB content]
         PG_CITE[Save to citations table\nper citation row]
@@ -901,8 +877,7 @@ flowchart TD
     end
 
     VF & CR2 --> WRITER
-    W_OUT --> CITATION
-    CI_OUT --> PERSIST
+    W_OUT --> PERSIST
     PERSIST --> WEB_RENDER
     PERSIST --> PDF_RENDER
 ```
@@ -989,7 +964,7 @@ graph TD
     PDF_DOC --> BODY[Report Sections\nHeading + body paragraphs\nInline [N] superscript markers]
     PDF_DOC --> CONCL[Conclusion]
     PDF_DOC --> BIB[Bibliography\nNumbered list\nURL as hyperlink]
-    PDF_DOC --> FOOTER[Page Footer\nNexus Research · Page N of M]
+    PDF_DOC --> FOOTER[Page Footer\nLitReviewer · Page N of M]
 ```
 
 ### 8.6 Report Data Model (Database)
@@ -1071,69 +1046,56 @@ sequenceDiagram
     participant FC as FactCheckerAgent
     participant CR as CriticAgent
     participant WA as WriterAgent
-    participant CA as CitationAgent
     participant RAG as RAGService
     participant PG as PostgreSQL
     participant QD as Qdrant
-    participant GEM as Gemini 2.5 Flash
+    participant GROQ as Groq llama-3.3-70b
     participant TAV as Tavily API
 
     U->>FE: Enter query, click Research
     FE->>API: POST /research/start
     API->>PG: INSERT session (running)
     API-->>FE: 202 { session_id }
-    FE->>API: GET /research/stream/{id} (SSE)
+    FE->>API: GET /research/{session_id} (polling)
 
     Note over GRAPH: Background task starts
 
     GRAPH->>RA: invoke with initial state
-    API-->>FE: SSE: agent_start (ResearchAgent)
-    RA->>TAV: search(query)
+    RA->>GROQ: generate search plan (structured output)
+    GROQ-->>RA: ResearchPlan (sub-queries)
+    RA->>TAV: search(sub-queries, max_results=20)
     TAV-->>RA: web results
-    RA->>GEM: synthesize findings
-    GEM-->>RA: structured findings JSON
+    RA->>QD: RAG retrieve(queries, session_id)
+    QD-->>RA: top-k chunks
+    RA->>GROQ: synthesize findings
+    GROQ-->>RA: FindingList JSON (13-20 findings)
     RA->>RAG: ingest(web content, session_id)
     RAG->>QD: embed + upsert chunks
-    API-->>FE: SSE: agent_output "Found 8 sources..."
-    API-->>FE: SSE: agent_end (ResearchAgent)
 
     GRAPH->>FC: invoke with findings
-    API-->>FE: SSE: agent_start (FactCheckerAgent)
     FC->>TAV: verify claims (independent queries)
     TAV-->>FC: verification results
     FC->>QD: retrieve related chunks
     QD-->>FC: top-k chunks
-    FC->>GEM: assess each claim
-    GEM-->>FC: verified findings JSON
-    API-->>FE: SSE: agent_output "Verified 7 of 8 claims..."
-    API-->>FE: SSE: agent_end (FactCheckerAgent)
+    FC->>GROQ: assess each claim
+    GROQ-->>FC: verified findings JSON
 
     GRAPH->>CR: invoke with verified findings
-    API-->>FE: SSE: agent_start (CriticAgent)
-    CR->>GEM: evaluate quality
-    GEM-->>CR: critique + quality_score
-    API-->>FE: SSE: agent_output "Quality score: 0.82"
-    API-->>FE: SSE: agent_end (CriticAgent)
+    CR->>GROQ: evaluate quality
+    GROQ-->>CR: critique + quality_score
 
-    Note over GRAPH: quality >= threshold → proceed
+    Note over GRAPH: quality >= threshold → proceed to write
 
     GRAPH->>WA: invoke with findings + critique
-    API-->>FE: SSE: agent_start (WriterAgent)
-    WA->>GEM: draft report
-    GEM-->>WA: structured report JSON
-    API-->>FE: SSE: agent_end (WriterAgent)
-
-    GRAPH->>CA: invoke with report + findings
-    API-->>FE: SSE: agent_start (CitationAgent)
-    CA->>GEM: assign citations
-    GEM-->>CA: cited report + bibliography
-    API-->>FE: SSE: agent_end (CitationAgent)
+    WA->>GROQ: generate outline
+    GROQ-->>WA: structured outline
+    WA->>GROQ: write sections (sectional mode)
+    GROQ-->>WA: cited report with inline citations
 
     SVC->>PG: INSERT report, findings, citations
     SVC->>PG: UPDATE session status=complete
-    API-->>FE: SSE: graph_complete { report_id }
 
-    FE->>API: GET /reports/{report_id}
+    FE->>API: GET /research/{session_id} (poll detects complete)
     API->>PG: SELECT report + citations
     PG-->>API: report data
     API-->>FE: report JSON
