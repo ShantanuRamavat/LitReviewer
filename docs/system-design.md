@@ -207,8 +207,8 @@ sequenceDiagram
     UI->>BE: POST /api/v1/research/start
     BE-->>UI: { session_id, status: "running" }
     UI->>Hook: open(session_id)
-    Hook->>SSE: new EventSource(/research/stream/{id})
-    SSE->>BE: GET /research/stream/{id}
+    Hook->>SSE: new EventSource(/research/stream/:id)
+    SSE->>BE: GET /research/stream/:id
     BE-->>SSE: event: agent_start (ResearchAgent)
     SSE-->>Hook: onmessage
     Hook-->>UI: agentEvents state update
@@ -218,7 +218,7 @@ sequenceDiagram
     BE-->>SSE: event: graph_complete { report_id }
     SSE-->>Hook: onmessage
     Hook->>SSE: close()
-    Hook-->>UI: reportId → navigate to /reports/{id}
+    Hook-->>UI: reportId → navigate to /reports/:id
 ```
 
 ### 2.4 Page Breakdown
@@ -263,9 +263,9 @@ graph TD
         MW_CORS[CORS Middleware]
         MW_RATE[Rate Limit Middleware]
         ROUTER_V1[APIRouter /api/v1]
-        EP_RESEARCH[research.py\n/research/start\n/research/stream/{id}\n/research/{id}]
-        EP_REPORTS[reports.py\n/reports/{id}\n/reports/{id}/export/pdf]
-        EP_HISTORY[history.py\n/history\n/history/{id}]
+        EP_RESEARCH[research.py\n/research/start\n/research/stream/:id\n/research/:id]
+        EP_REPORTS[reports.py\n/reports/:id\n/reports/:id/export/pdf]
+        EP_HISTORY[history.py\n/history\n/history/:id]
         EP_HEALTH[health.py\n/health]
     end
 
@@ -941,8 +941,8 @@ sequenceDiagram
     participant J2 as Jinja2 Template
     participant WP as WeasyPrint
 
-    C->>EP: GET /reports/{id}/export/pdf
-    EP->>DB: SELECT report + citations WHERE id={id}
+    C->>EP: GET /reports/:id/export/pdf
+    EP->>DB: SELECT report + citations WHERE id=:id
     DB-->>EP: Report + Citation rows
     EP->>PDF: generate(report, citations)
     PDF->>J2: render("report_template.html", context)
