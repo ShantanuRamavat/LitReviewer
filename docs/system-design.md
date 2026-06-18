@@ -912,7 +912,7 @@ flowchart TD
     CLAIM{Is sentence a\nfactual claim?}
     MATCH[Find best matching\nfinding by semantic similarity\nbetween sentence and finding text]
     CONF{Similarity score\n>= 0.75?}
-    INSERT[Insert [N] citation marker\nat end of sentence]
+    INSERT[Insert citation marker N\nat end of sentence]
     SKIP[Leave sentence without\ncitation marker]
     NEXT[Next sentence]
     BIB[Build bibliography\nfrom all cited findings]
@@ -961,7 +961,7 @@ graph TD
     PDF_DOC[PDF Document]
     PDF_DOC --> COVER[Cover Block\nReport title\nQuery\nDate generated\nQuality score badge]
     PDF_DOC --> EXEC[Executive Summary\nShaded background box]
-    PDF_DOC --> BODY[Report Sections\nHeading + body paragraphs\nInline [N] superscript markers]
+    PDF_DOC --> BODY[Report Sections\nHeading + body paragraphs\nInline superscript citation markers]
     PDF_DOC --> CONCL[Conclusion]
     PDF_DOC --> BIB[Bibliography\nNumbered list\nURL as hyperlink]
     PDF_DOC --> FOOTER[Page Footer\nLitReviewer · Page N of M]
@@ -1194,7 +1194,3 @@ flowchart TD
     WA_OK -->|No| WA_FAIL
     FC_FAIL --> WA_FAIL --> REPORT_MINIMAL
 ```
-
----
-
-*Document ends. For API endpoint contracts, refer to `docs/api-spec.md`. For database migrations, refer to `backend/migrations/`.*
